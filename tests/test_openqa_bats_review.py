@@ -3,17 +3,16 @@
 
 import importlib.machinery
 import importlib.util
-import os
 import sys
 from unittest.mock import Mock, patch
+import pathlib
 
 import pytest
 from requests.exceptions import RequestException
-import pathlib
 import contextlib
 
 # Load the script as module "bats_review" (the file is named `openqa-bats-review`)
-rootpath = pathlib.Path(os.path.join(pathlib.Path(__file__).parent, "..")).resolve()
+rootpath = pathlib.Path(__file__).parent.parent.resolve()
 loader = importlib.machinery.SourceFileLoader("bats_review", f"{rootpath}/openqa-bats-review")
 spec = importlib.util.spec_from_loader(loader.name, loader)
 bats_review = importlib.util.module_from_spec(spec)
