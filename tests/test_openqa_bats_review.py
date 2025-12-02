@@ -223,112 +223,112 @@ class TestMain:
     @patch("bats_review.resolve_clone_chain")
     @patch("bats_review.get_job")
     @patch("bats_review.log")
-    def test_main_insufficient_logs(
-        self, mock_log: MagicMock, mock_get_job: MagicMock, mock_resolve: MagicMock
-    ) -> None:
-        """If jobs do not have the expected number of logs (e.g. podman expects 4 but provides 2),
-
-        main should log the 'only X logs' messages for each job and eventually exit(0).
-        """
-        mock_resolve.return_value = [123, 122]
-
-        def job_resp(url: str) -> dict[str, Any]:
-            jid = int(url.split("/")[-2])
-            return {
-                "id": jid,
-                "settings": {"TEST": "podman_testsuite", "DISTRI": "opensuse"},
-                "ulogs": ["a.xml", "b.xml"],  # only 2, but podman expects 4
-            }
-
-        mock_get_job.side_effect = job_resp
-
-        with pytest.raises(SystemExit) as exc:
-            bats_review.main("http://openqa.example.com/tests/123", dry_run=True)
-
-        assert exc.value.code == 0
-        mock_log.info.assert_any_call("Job %s has only %d logs, skipping", 123, 2)
-        mock_log.info.assert_any_call("Job %s has only %d logs, skipping", 122, 2)
-        mock_log.info.assert_any_call("No logs found in chain. Exiting")
-
-
-class TestParseArgs:
-    @patch("sys.argv", ["script.py", "http://example.com/tests/123"])
-    def test_parse_args_success(self) -> None:
-        args = bats_review.parse_args()
-        assert args.url == "http://example.com/tests/123"
-
-    @patch("sys.argv", ["script.py"])
-    def test_parse_args_missing_url(self) -> None:
-        with pytest.raises(SystemExit):
-            bats_review.parse_args()
-
-
-#
-# Integration test
-#
-class TestIntegration:
-    @patch("bats_review.openqa_comment")
-    def test_full_workflow_no_common_failures(self, mock_openqa_comment: MagicMock) -> None:
-        """Integration-style test: patch session.get to return proper JSON for job details
-
-        and JUnit XML for files, simulate two jobs that each have a different failing
-        testcase, and assert that the script decides to tag as PASSED (dry_run).
-        """
-
-        def fake_get(url: str, headers: dict[str, Any] | None = None, timeout: int | None = None) -> Mock:
-            m = Mock()
-            if "/api/v1/jobs/123/details" in url:
-                m.json.return_value = {
-                    "job": {
-                        "id": 123,
-                        "settings": {
-                            "TEST": "aardvark_testsuite",
-                            "DISTRI": "opensuse",
-                        },
-                        "origin_id": 122,
-                        "ulogs": ["test.xml"],
-                    }
+        def test_main_insufficient_logs(
+            self, mock_log: MagicMock, mock_get_job: MagicMock, mock_resolve: MagicMock
+        ) -> None:
+            """If jobs do not have the expected number of logs (e.g. podman expects 4 but provides 2),
+    
+            main should log the 'only X logs' messages for each job and eventually exit(0).
+            """
+            mock_resolve.return_value = [123, 122]
+    
+            def job_resp(url: str) -> dict[str, Any]:
+                jid = int(url.split("/")[-2])
+                return {
+                    "id": jid,
+                    "settings": {"TEST": "podman_testsuite", "DISTRI": "opensuse"},
+                    "ulogs": ["a.xml", "b.xml"],  # only 2, but podman expects 4
                 }
-            elif "/api/v1/jobs/122/details" in url:
-                m.json.return_value = {
-                    "job": {
-                        "id": 122,
-                        "settings": {
-                            "TEST": "aardvark_testsuite",
-                            "DISTRI": "opensuse",
-                        },
-                        "ulogs": ["test.xml"],
+    
+            mock_get_job.side_effect = job_resp
+    
+            with pytest.raises(SystemExit) as exc:
+                bats_review.main("http://openqa.example.com/tests/123", dry_run=True)
+    
+            assert exc.value.code == 0
+            mock_log.info.assert_any_call("Job %s has only %d logs, skipping", 123, 2)
+            mock_log.info.assert_any_call("Job %s has only %d logs, skipping", 122, 2)
+            mock_log.info.assert_any_call("No logs found in chain. Exiting")
+    
+    
+    class TestParseArgs:
+        @patch("sys.argv", ["script.py", "http://example.com/tests/123"])
+        def test_parse_args_success(self) -> None:
+            args = bats_review.parse_args()
+            assert args.url == "http://example.com/tests/123"
+    
+        @patch("sys.argv", ["script.py"])
+        def test_parse_args_missing_url(self) -> None:
+            with pytest.raises(SystemExit):
+                bats_review.parse_args()
+    
+    
+    #
+    # Integration test
+    #
+    class TestIntegration:
+        @patch("bats_review.openqa_comment")
+        def test_full_workflow_no_common_failures(self, mock_openqa_comment: MagicMock) -> None:
+            """Integration-style test: patch session.get to return proper JSON for job details.
+    
+            and JUnit XML for files, simulate two jobs that each have a different failing
+            testcase, and assert that the script decides to tag as PASSED (dry_run).
+            """
+    
+            def fake_get(url: str) -> Mock:
+                m = Mock()
+                if "/api/v1/jobs/123/details" in url:
+                    m.json.return_value = {
+                        "job": {
+                            "id": 123,
+                            "settings": {
+                                "TEST": "aardvark_testsuite",
+                                "DISTRI": "opensuse",
+                            },
+                            "origin_id": 122,
+                            "ulogs": ["test.xml"],
+                        }
                     }
-                }
-            elif "/tests/123/file/test.xml" in url:
-                m.text = """
-                    <testsuite>
-                      <testcase classname="c" name="ok"/>
-                      <testcase classname="c" name="failA"><failure>err</failure></testcase>
-                    </testsuite>
-                """
-            elif "/tests/122/file/test.xml" in url:
-                m.text = """
-                    <testsuite>
-                      <testcase classname="c" name="ok"/>
-                      <testcase classname="c" name="failB"><failure>err</failure></testcase>
-                    </testsuite>
-                """
-            else:
-                # default (should not happen in this test)
-                m.json.return_value = {"job": {"id": 999, "ulogs": []}}
-            return m
-
-        # patch the session used by the module
-        bats_review.session.get = fake_get
-        mock_openqa_comment.return_value = "ok-comment"
-
-        # run main and assert successful path (no SystemExit); openqa_comment should be called
-        res = bats_review.main("http://openqa.example.com/tests/123", dry_run=True)
-        assert res is None
-        called = mock_openqa_comment.call_args[0]
-        job_id, host, comment, dry_run = called[:4]
-        assert job_id == 123
-        assert host.startswith(("http://openqa.example.com", "https://openqa.example.com")), host
-        assert bats_review.PASSED in comment
-        assert dry_run is True
+                elif "/api/v1/jobs/122/details" in url:
+                    m.json.return_value = {
+                        "job": {
+                            "id": 122,
+                            "settings": {
+                                "TEST": "aardvark_testsuite",
+                                "DISTRI": "opensuse",
+                            },
+                            "ulogs": ["test.xml"],
+                        }
+                    }
+                elif "/tests/123/file/test.xml" in url:
+                    m.text = """
+                        <testsuite>
+                          <testcase classname="c" name="ok"/>
+                          <testcase classname="c" name="failA"><failure>err</failure></testcase>
+                        </testsuite>
+                    """
+                elif "/tests/122/file/test.xml" in url:
+                    m.text = """
+                        <testsuite>
+                          <testcase classname="c" name="ok"/>
+                          <testcase classname="c" name="failB"><failure>err</failure></testcase>
+                        </testsuite>
+                    """
+                else:
+                    # default (should not happen in this test)
+                    m.json.return_value = {"job": {"id": 999, "ulogs": []}}
+                return m
+    
+            # patch the session used by the module
+            bats_review.session.get = fake_get
+            mock_openqa_comment.return_value = "ok-comment"
+    
+            # run main and assert successful path (no SystemExit); openqa_comment should be called
+            res = bats_review.main("http://openqa.example.com/tests/123", dry_run=True)
+            assert res is None
+            called = mock_openqa_comment.call_args[0]
+            job_id, host, comment, dry_run = called[:4]
+            assert job_id == 123
+            assert host.startswith(("http://openqa.example.com", "https://openqa.example.com")), host
+            assert bats_review.PASSED in comment
+            assert dry_run is True
