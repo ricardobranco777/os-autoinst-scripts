@@ -278,7 +278,7 @@ class TestIntegration:
         testcase, and assert that the script decides to tag as PASSED (dry_run).
         """
 
-        def fake_get(url: str, headers: dict[str, Any] | None = None, timeout: int | None = None) -> Mock:
+        def fake_get(url: str) -> Mock:
             m = Mock()
             if "/api/v1/jobs/123/details" in url:
                 m.json.return_value = {
