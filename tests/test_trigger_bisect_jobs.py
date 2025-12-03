@@ -1,4 +1,4 @@
-"""tests for openqa-trigger-bisect-jobs"""
+"""tests for openqa-trigger-bisect-jobs."""
 
 import importlib.machinery
 import importlib.util
@@ -13,9 +13,9 @@ from urllib.parse import urlparse
 import pytest
 import requests
 
-rootpath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+rootpath = pathlib.Path(os.path.join(pathlib.Path(__file__).parent, "..")).resolve()
 
-loader = importlib.machinery.SourceFileLoader("openqa", rootpath + "/openqa-trigger-bisect-jobs")
+loader = importlib.machinery.SourceFileLoader("openqa", f"{rootpath}/openqa-trigger-bisect-jobs")
 spec = importlib.util.spec_from_loader(loader.name, loader)
 openqa = importlib.util.module_from_spec(spec)
 loader.exec_module(openqa)
@@ -35,17 +35,17 @@ def mocked_fetch_url(url, request_type="text"):
     content = ""
     url = urlparse(url)
 
-    if url.scheme in ["http", "https"]:
+    if url.scheme in {"http", "https"}:
         path = url.geturl()
         path = path[len(url.scheme) + 3 :]
         path = "tests/data/python-requests/" + path
-        with pathlib.Path(path).open() as request:
+        with pathlib.Path(path).open(encoding="utf-8") as request:
             content = request.read()
     if request_type == "json":
         try:
             content = json.loads(content)
-        except json.decoder.JSONDecodeError as e:
-            raise (e)
+        except json.decoder.JSONDecodeError:
+            raise
     return content
 
 
@@ -63,7 +63,7 @@ cmds = [
 ]
 
 
-def test_catch_CalledProcessError(caplog):
+def test_catch_CalledProcessError(caplog) -> None:
     import subprocess
 
     args = args_factory()
@@ -91,7 +91,7 @@ def test_catch_CalledProcessError(caplog):
     assert f"{exp_err}" in caplog.text
 
 
-def test_clone():
+def test_clone() -> None:
     openqa.call = MagicMock(side_effect=mocked_call)
     openqa.openqa_clone(cmds, dry_run=False)
     args = [
@@ -108,7 +108,7 @@ def test_clone():
     openqa.call.assert_called_once_with(args, False)
 
 
-def test_comment():
+def test_comment() -> None:
     openqa.call = MagicMock(side_effect=mocked_call)
     openqa.openqa_comment(1234567, "https://openqa.opensuse.org", "foo\nbar", dry_run=False)
     args = [
@@ -126,7 +126,7 @@ def test_comment():
     openqa.call.assert_called_once_with(args, False)
 
 
-def test_set_job_prio():
+def test_set_job_prio() -> None:
     openqa.call = MagicMock(side_effect=mocked_call)
     openqa.openqa_set_job_prio(1234567, "https://openqa.opensuse.org", 42, dry_run=False)
     args = [
@@ -146,7 +146,7 @@ def test_set_job_prio():
     openqa.call.assert_called_once_with(args, False)
 
 
-def test_triggers():
+def test_triggers() -> None:
     args = args_factory()
     args.url = "https://openqa.opensuse.org/tests/7848818"
     openqa.openqa_clone = MagicMock(return_value='{"7848818": 234567}')
@@ -222,7 +222,7 @@ def test_triggers():
     assert prio_calls == openqa.openqa_set_job_prio.call_args_list
 
 
-def test_problems():
+def test_problems() -> None:
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
@@ -230,7 +230,7 @@ def test_problems():
     args.url = "http://openqa.opensuse.org/tests/123"
     try:
         openqa.main(args)
-        assert False
+        raise AssertionError
     except json.decoder.JSONDecodeError as e:
         assert str(e) == "Expecting value: line 1 column 1 (char 0)"
 
@@ -260,7 +260,7 @@ def test_problems():
     openqa.openqa_clone.assert_not_called()
 
 
-def test_directly_chained():
+def test_directly_chained() -> None:
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
@@ -270,7 +270,7 @@ def test_directly_chained():
     openqa.openqa_clone.assert_not_called()
 
 
-def test_exclude_already_retried():
+def test_exclude_already_retried() -> None:
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
@@ -280,7 +280,7 @@ def test_exclude_already_retried():
     openqa.openqa_clone.assert_not_called()
 
 
-def test_exclude_group_regex():
+def test_exclude_group_regex() -> None:
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
@@ -293,7 +293,7 @@ def test_exclude_group_regex():
     del os.environ["exclude_group_regex"]
 
 
-def test_exclude_name_regex():
+def test_exclude_name_regex() -> None:
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
@@ -305,7 +305,7 @@ def test_exclude_name_regex():
     del os.environ["exclude_name_regex"]
 
 
-def test_exclude_investigated():
+def test_exclude_investigated() -> None:
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
@@ -315,19 +315,19 @@ def test_exclude_investigated():
     openqa.openqa_clone.assert_not_called()
 
 
-def test_network_problems():
+def test_network_problems() -> None:
     args = args_factory()
     args.url = "http://doesnotexist.openqa.opensuse.org/tests/12345"
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=orig_fetch_url)
     try:
         openqa.main(args)
-        assert False
+        raise AssertionError
     except requests.exceptions.ConnectionError:
         assert True
 
 
-def test_issue_types():
+def test_issue_types() -> None:
     investigation = '- "OS_TEST_ISSUES": "1,2,3,4",\n+ "OS_TEST_ISSUES": "1,2,3,4,5",\n- "OTHER_TEST_ISSUES": "23",\n+ "OTHER_TEST_ISSUES": "24",\n+ "DUMMY_TEST_ISSUES": "25,26,27",'
     changes = openqa.find_changed_issues(investigation)
     exp = {
