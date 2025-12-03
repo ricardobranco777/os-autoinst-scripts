@@ -1,4 +1,4 @@
-# tests/test_openqa_bats_review.py
+# Copyright SUSE LLC
 """Unit & integration tests for openqa-bats-review (JUnit XML based)."""
 
 import importlib.machinery
