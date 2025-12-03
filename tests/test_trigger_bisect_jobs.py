@@ -284,25 +284,21 @@ def test_exclude_group_regex() -> None:
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
-    # should only affect test_exclude_group_regex() as it does not match other tests
-    os.environ["exclude_group_regex"] = "s.*parent?-group / some-.*"
-
     args.url = "http://openqa.opensuse.org/tests/123457"
-    openqa.main(args)
+    # should only affect test_exclude_group_regex() as it does not match other tests
+    with patch.dict("os.environ", {"exclude_group_regex": "s.*parent?-group / some-.*"}):
+        openqa.main(args)
     openqa.openqa_clone.assert_not_called()
-    del os.environ["exclude_group_regex"]
 
 
 def test_exclude_name_regex() -> None:
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
-
-    os.environ["exclude_name_regex"] = "with.*group"
     args.url = "http://openqa.opensuse.org/tests/123457"
-    openqa.main(args)
+    with patch.dict("os.environ", {"exclude_name_regex": "with.*group"}):
+        openqa.main(args)
     openqa.openqa_clone.assert_not_called()
-    del os.environ["exclude_name_regex"]
 
 
 def test_exclude_investigated() -> None:
