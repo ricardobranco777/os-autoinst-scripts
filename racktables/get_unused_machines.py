@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright SUSE LLC
 import logging
 import os
 from getpass import getpass
