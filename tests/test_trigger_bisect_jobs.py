@@ -1,4 +1,5 @@
 # Copyright SUSE LLC
+# ruff: noqa: FBT001 FBT002 FBT003 E501 PT017 ARG001
 """tests for openqa-trigger-bisect-jobs."""
 
 import importlib.machinery
