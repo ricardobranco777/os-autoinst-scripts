@@ -184,10 +184,8 @@ class TestMain:
     @patch("bats_review.get_job")
     @patch("bats_review.process_logs")
     @patch("bats_review.openqa_comment")
-    @patch("bats_review.log")
     def test_main_no_common_failures(
         self,
-        mock_log: MagicMock,
         mock_openqa_comment: MagicMock,
         mock_process_logs: MagicMock,
         mock_get_job: MagicMock,
@@ -212,7 +210,8 @@ class TestMain:
         mock_process_logs.side_effect = [{"a"}, {"b"}]
         mock_openqa_comment.return_value = "commented"
         # should return normally (no SystemExit) because script prints comment and returns
-        res = bats_review.main("http://openqa.example.com/tests/123", dry_run=True)
+        with patch("bats_review.log"):
+            res = bats_review.main("http://openqa.example.com/tests/123", dry_run=True)
         assert res is None
         # openqa_comment should be called for the job that we started from (my_job_id == 123)
         called = mock_openqa_comment.call_args[0]
@@ -279,7 +278,7 @@ class TestIntegration:
         testcase, and assert that the script decides to tag as PASSED (dry_run).
         """
 
-        def fake_get(url: str, **kwargs) -> Mock:
+        def fake_get(url: str) -> Mock:
             m = Mock()
             if "/api/v1/jobs/123/details" in url:
                 m.json.return_value = {
