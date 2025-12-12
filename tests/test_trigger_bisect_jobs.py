@@ -1,22 +1,23 @@
-"""
-tests for openqa-trigger-bisect-jobs
-"""
+# Copyright SUSE LLC
+# ruff: noqa: FBT001 FBT002 FBT003 E501 PT017 ARG001
+"""tests for openqa-trigger-bisect-jobs."""
 
-from argparse import Namespace
 import importlib.machinery
 import importlib.util
 import json
-import os.path
+import pathlib
 import re
+from argparse import Namespace
+from typing import Any
 from unittest.mock import MagicMock, call, patch
 from urllib.parse import urlparse
 
 import pytest
 import requests
 
-rootpath = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+rootpath = pathlib.Path(__file__).parent.parent.resolve()
 
-loader = importlib.machinery.SourceFileLoader("openqa", rootpath + "/openqa-trigger-bisect-jobs")
+loader = importlib.machinery.SourceFileLoader("openqa", f"{rootpath}/openqa-trigger-bisect-jobs")
 spec = importlib.util.spec_from_loader(loader.name, loader)
 openqa = importlib.util.module_from_spec(spec)
 loader.exec_module(openqa)
@@ -24,7 +25,7 @@ loader.exec_module(openqa)
 Incident = openqa.Incident
 
 
-def args_factory():
+def args_factory() -> Namespace:
     args = Namespace()
     args.dry_run = False
     args.verbose = 1
@@ -32,25 +33,22 @@ def args_factory():
     return args
 
 
-def mocked_fetch_url(url, request_type="text"):
+def mocked_fetch_url(url: str, request_type: str = "text") -> Any:
     content = ""
     url = urlparse(url)
 
-    if url.scheme in ["http", "https"]:
+    if url.scheme in {"http", "https"}:
         path = url.geturl()
         path = path[len(url.scheme) + 3 :]
         path = "tests/data/python-requests/" + path
-        with open(path, "r") as request:
+        with pathlib.Path(path).open(encoding="utf-8") as request:
             content = request.read()
     if request_type == "json":
-        try:
-            content = json.loads(content)
-        except json.decoder.JSONDecodeError as e:
-            raise (e)
+        return json.loads(content)
     return content
 
 
-def mocked_call(cmds, dry_run=False):
+def mocked_call(cmds: list[str], dry_run: bool = False) -> list[str]:
     return cmds
 
 
@@ -64,17 +62,16 @@ cmds = [
 ]
 
 
-def test_catch_CalledProcessError(caplog):
-    import subprocess
+def test_catch_CalledProcessError(caplog: pytest.LogCaptureFixture) -> None:
+    import subprocess  # noqa: S404
 
     args = args_factory()
     args.url = "https://openqa.opensuse.org/tests/7848818"
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
     exp_err = "returned non-zero exit status 255."
     error = subprocess.CompletedProcess(args=[], returncode=255, stderr=exp_err, stdout="")
-    with patch("subprocess.run", return_value=error):
-        with pytest.raises(subprocess.CalledProcessError) as e:
-            openqa.main(args)
+    with patch("subprocess.run", return_value=error), pytest.raises(subprocess.CalledProcessError) as e:
+        openqa.main(args)
 
     assert e.value.returncode == 255
     assert f"{exp_err}" in str(e.value.stderr)
@@ -86,14 +83,14 @@ def test_catch_CalledProcessError(caplog):
         with pytest.raises(SystemExit) as e:
             openqa.main(args)
         assert re.search(
-            "jobs/.*/comments.*text=.*updates are unavailable",
+            r"jobs/.*/comments.*text=.*updates are unavailable",
             str(mocked.call_args_list[-1][0]),
         )
     assert e.value.code == 0
     assert f"{exp_err}" in caplog.text
 
 
-def test_clone():
+def test_clone() -> None:
     openqa.call = MagicMock(side_effect=mocked_call)
     openqa.openqa_clone(cmds, dry_run=False)
     args = [
@@ -110,7 +107,7 @@ def test_clone():
     openqa.call.assert_called_once_with(args, False)
 
 
-def test_comment():
+def test_comment() -> None:
     openqa.call = MagicMock(side_effect=mocked_call)
     openqa.openqa_comment(1234567, "https://openqa.opensuse.org", "foo\nbar", dry_run=False)
     args = [
@@ -128,7 +125,7 @@ def test_comment():
     openqa.call.assert_called_once_with(args, False)
 
 
-def test_set_job_prio():
+def test_set_job_prio() -> None:
     openqa.call = MagicMock(side_effect=mocked_call)
     openqa.openqa_set_job_prio(1234567, "https://openqa.opensuse.org", 42, dry_run=False)
     args = [
@@ -148,7 +145,7 @@ def test_set_job_prio():
     openqa.call.assert_called_once_with(args, False)
 
 
-def test_triggers():
+def test_triggers() -> None:
     args = args_factory()
     args.url = "https://openqa.opensuse.org/tests/7848818"
     openqa.openqa_clone = MagicMock(return_value='{"7848818": 234567}')
@@ -224,7 +221,7 @@ def test_triggers():
     assert prio_calls == openqa.openqa_set_job_prio.call_args_list
 
 
-def test_problems():
+def test_problems() -> None:
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
@@ -232,7 +229,7 @@ def test_problems():
     args.url = "http://openqa.opensuse.org/tests/123"
     try:
         openqa.main(args)
-        assert False
+        raise AssertionError
     except json.decoder.JSONDecodeError as e:
         assert str(e) == "Expecting value: line 1 column 1 (char 0)"
 
@@ -262,7 +259,7 @@ def test_problems():
     openqa.openqa_clone.assert_not_called()
 
 
-def test_directly_chained():
+def test_directly_chained() -> None:
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
@@ -272,7 +269,7 @@ def test_directly_chained():
     openqa.openqa_clone.assert_not_called()
 
 
-def test_exclude_already_retried():
+def test_exclude_already_retried() -> None:
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
@@ -282,32 +279,28 @@ def test_exclude_already_retried():
     openqa.openqa_clone.assert_not_called()
 
 
-def test_exclude_group_regex():
+def test_exclude_group_regex() -> None:
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
+    args.url = "http://openqa.opensuse.org/tests/123457"
     # should only affect test_exclude_group_regex() as it does not match other tests
-    os.environ["exclude_group_regex"] = "s.*parent?-group / some-.*"
-
-    args.url = "http://openqa.opensuse.org/tests/123457"
-    openqa.main(args)
+    with patch.dict("os.environ", {"exclude_group_regex": "s.*parent?-group / some-.*"}):
+        openqa.main(args)
     openqa.openqa_clone.assert_not_called()
-    del os.environ["exclude_group_regex"]
 
 
-def test_exclude_name_regex():
+def test_exclude_name_regex() -> None:
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
-
-    os.environ["exclude_name_regex"] = "with.*group"
     args.url = "http://openqa.opensuse.org/tests/123457"
-    openqa.main(args)
+    with patch.dict("os.environ", {"exclude_name_regex": "with.*group"}):
+        openqa.main(args)
     openqa.openqa_clone.assert_not_called()
-    del os.environ["exclude_name_regex"]
 
 
-def test_exclude_investigated():
+def test_exclude_investigated() -> None:
     args = args_factory()
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=mocked_fetch_url)
@@ -317,20 +310,26 @@ def test_exclude_investigated():
     openqa.openqa_clone.assert_not_called()
 
 
-def test_network_problems():
+def test_network_problems() -> None:
     args = args_factory()
     args.url = "http://doesnotexist.openqa.opensuse.org/tests/12345"
     openqa.openqa_clone = MagicMock(return_value="")
     openqa.fetch_url = MagicMock(side_effect=orig_fetch_url)
     try:
         openqa.main(args)
-        assert False
+        raise AssertionError
     except requests.exceptions.ConnectionError:
         assert True
 
 
-def test_issue_types():
-    investigation = '- "OS_TEST_ISSUES": "1,2,3,4",\n+ "OS_TEST_ISSUES": "1,2,3,4,5",\n- "OTHER_TEST_ISSUES": "23",\n+ "OTHER_TEST_ISSUES": "24",\n+ "DUMMY_TEST_ISSUES": "25,26,27",'
+def test_issue_types() -> None:
+    investigation = (
+        '- "OS_TEST_ISSUES": "1,2,3,4",\n'
+        '+ "OS_TEST_ISSUES": "1,2,3,4,5",\n'
+        '- "OTHER_TEST_ISSUES": "23",\n'
+        '+ "OTHER_TEST_ISSUES": "24",\n'
+        '+ "DUMMY_TEST_ISSUES": "25,26,27",'
+    )
     changes = openqa.find_changed_issues(investigation)
     exp = {
         "OS_TEST_ISSUES": {
@@ -346,7 +345,15 @@ def test_issue_types():
     }
     assert changes == exp
 
-    investigation_repos = '- "OS_TEST_ISSUES": "1,2,3,4",\n- "OS_TEST_REPOS": "1,2,3,4",\n+ "OS_TEST_ISSUES": "1,2,3,4,5",\n+ "OS_TEST_REPOS": "1,2,3,4,5",\n- "OTHER_TEST_ISSUES": "23",\n+ "OTHER_TEST_ISSUES": "24",\n+ "DUMMY_TEST_ISSUES": "25,26,27",'
+    investigation_repos = (
+        '- "OS_TEST_ISSUES": "1,2,3,4",\n'
+        '- "OS_TEST_REPOS": "1,2,3,4",\n'
+        '+ "OS_TEST_ISSUES": "1,2,3,4,5",\n'
+        '+ "OS_TEST_REPOS": "1,2,3,4,5",\n'
+        '- "OTHER_TEST_ISSUES": "23",\n'
+        '+ "OTHER_TEST_ISSUES": "24",\n'
+        '+ "DUMMY_TEST_ISSUES": "25,26,27",'
+    )
     changes_repos = openqa.find_changed_issues(investigation_repos)
     exp_repos = {
         "OS_TEST_REPOS": {

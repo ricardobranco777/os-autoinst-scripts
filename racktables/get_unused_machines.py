@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-from racktables import Racktables, RacktablesObject
-from getpass import getpass
+# Copyright SUSE LLC
+import logging
 import os
+from getpass import getpass
+
+from racktables import Racktables, RacktablesObject
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+log = logging.getLogger(__name__)
 
 rt_url = os.environ.get("RT_URL", "https://racktables.suse.de")
-user = os.environ["RT_USERNAME"] if "RT_USERNAME" in os.environ.keys() else input("Username: ")
-pwd = os.environ["RT_PASSWORD"] if "RT_PASSWORD" in os.environ.keys() else getpass("Password (masked): ")
+user = os.environ["RT_USERNAME"] if "RT_USERNAME" in os.environ else input("Username: ")
+pwd = os.environ["RT_PASSWORD"] if "RT_PASSWORD" in os.environ else getpass("Password (masked): ")
 
 rt = Racktables(rt_url, user, pwd)
 search_payload = {
@@ -23,6 +29,6 @@ for result_obj in results:
     obj = RacktablesObject(rt)
     obj.from_path(url_path)
     try:
-        print(obj.fqdn, flush=True)
-    except Exception:
-        print(obj.common_name, flush=True)
+        log.info(obj.fqdn)
+    except AttributeError:
+        log.info(obj.common_name)
