@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # Copyright SUSE LLC
 from __future__ import annotations
 
