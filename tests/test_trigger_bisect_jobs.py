@@ -367,3 +367,8 @@ def test_issue_types() -> None:
         }
     }
     assert changes_repos == exp_repos
+
+
+def test_parsing_incident_id_from_repo() -> None:
+    i = Incident("http://%REPO_MIRROR_HOST%/ibs/SUSE:/SLFO:/1.2:/PullRequest:/1266:/SL-Micro/…/")
+    assert i.incident_id == "1266"
