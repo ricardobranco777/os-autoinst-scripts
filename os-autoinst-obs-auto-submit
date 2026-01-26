@@ -239,7 +239,6 @@ sync_changesrevision() {
 }
 
 get_spec_changes_in_requirements() {
-    log-info "get_spec_changes_in_requirements $*"
     local package=$1
     local project=$2
     { diff -u "$package-factory.spec" "$project/$package/_service:obs_scm:$package.spec" || :; } | grep '^[+-]Requires'
