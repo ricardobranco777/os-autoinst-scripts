@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 from typing import List, Set
 
 import requests
+from requests.adapters import HTTPAdapter
 from requests.exceptions import RequestException
 
 
@@ -29,7 +30,11 @@ USER_AGENT = "openqa-bats-review (https://github.com/os-autoinst/os-autoinst-scr
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 log = logging.getLogger(sys.argv[0] if __name__ == "__main__" else __name__)
+
 session = requests.Session()
+adapter = HTTPAdapter(pool_connections=100, pool_maxsize=100, max_retries=3)
+session.mount("http://", adapter)
+session.mount("https://", adapter)
 
 
 client_args = [
@@ -177,12 +182,16 @@ def main(url: str, dry_run: bool = False) -> None:
         "aardvark_testsuite": 1,
         "buildah_testsuite": 2,
         "conmon_testsuite": 2,
-        "docker_testsuite": 4,
+        "containerd_testsuite": 1,
+        "docker_rootless_testsuite": 12,
+        "docker_testsuite": 13,
         "netavark_testsuite": 1,
-        "podman_e2e": 1,
+        "podman_e2e": 4,
+        "podman_rootless_e2e": 3,
         "podman_testsuite": 4,
         "runc_testsuite": 2,
         "skopeo_testsuite": 2,
+        "umoci_testsuite": 2,
     }
 
     all_failures = []
@@ -213,12 +222,11 @@ def main(url: str, dry_run: bool = False) -> None:
             expected["buildah_testsuite"] += 1
             # For conmon we also test crun as root & rootless
             expected["conmon_testsuite"] += 2
-            # For docker we also test ssh with python3-docker
-            expected["docker_testsuite"] += 1
-            # For podman we also test python3-podman & remoteintegration
-            expected["podman_e2e"] += 3
+            expected["docker_testsuite"] += 6
             # For skopeo we also run Golang integration tests
             expected["skopeo_testsuite"] += 1
+        elif job["settings"]["DISTRI"] == "sle" and job["settings"]["VERSION"].startswith("16."):
+            expected["docker_testsuite"] += 6
 
         if len(logs) != expected[testsuite]:
             log.info("Job %s has only %d logs, skipping", job_id, len(logs))
