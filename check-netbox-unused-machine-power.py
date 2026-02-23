@@ -11,6 +11,7 @@ import sys
 
 import netsnmp
 import pynetbox
+from termcolor import colored as co
 
 verbose = os.environ.get("VERBOSE") == "1"
 netbox_token = os.environ["NETBOX_TOKEN"]
@@ -30,11 +31,11 @@ class SNMP:
 
 def print_device(device: pynetbox.models.dcim.Devices, dev_pdu_power: dict, watts: int) -> None:
     s = "  " if verbose else ""
-    dev_pdu_power = " ".join([f"{h}:{s}={w}W" for (h,s),w in dev_pdu_power.items()])
+    dev_pdu_power = " ".join([f"{h}:{co(p, 'green' if s else 'red')}={w}W" for (h, p), (w, s) in dev_pdu_power.items()])
     print(f"{s}{device.name} status={device.status.value} {dev_pdu_power} ∑{watts}W")
 
 
-def print_no_connection(device: pynetbox.models.dcim.Devices):
+def print_no_connection(device: pynetbox.models.dcim.Devices) -> None:
     if verbose:
         print(f"No connection for {device.name} ({device.display_url})", file=sys.stderr)
 
@@ -43,6 +44,7 @@ def print_no_connection(device: pynetbox.models.dcim.Devices):
 # and set os.environ['MIBS'] = 'EATON-EPDU-MIB' to load them, or set the OID statically:
 outletDesignator = ".1.3.6.1.4.1.534.6.6.7.6.1.1.6"
 outletWatts = ".1.3.6.1.4.1.534.6.6.7.6.5.1.3"
+outletControlStatus = ".1.3.6.1.4.1.534.6.6.7.6.6.1.2"
 
 # Initialize the NetBox instance
 nb = pynetbox.api("https://netbox.suse.de", token=netbox_token)
@@ -71,12 +73,13 @@ for device in devices:
             pwr_socket = pwr_socket.split("-")[0]
         snmp = SNMP(pdu_host)
         w = int(snmp.get(outletWatts, f"0.{pwr_socket}"))
-        dev_pdu_power[(pdu_host, pwr_socket)] = w
+        s = bool(int(snmp.get(outletControlStatus, f"0.{pwr_socket}")))
+        dev_pdu_power[pdu_host, pwr_socket] = (w, s)
     if not dev_pdu_power:
         print_no_connection(device)
     else:
         dev_total_pwr = 0
-        for (pdu_host, pwr_socket), w in dev_pdu_power.items():
+        for w, _ in dev_pdu_power.values():
             dev_total_pwr += w
         dev = (device, dev_pdu_power, dev_total_pwr)
         if dev_total_pwr > max_power:
