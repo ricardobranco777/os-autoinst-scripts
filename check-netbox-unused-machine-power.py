@@ -11,7 +11,6 @@ import sys
 
 import netsnmp
 import pynetbox
-from termcolor import colored as co
 
 verbose = os.environ.get("VERBOSE") == "1"
 netbox_token = os.environ["NETBOX_TOKEN"]
@@ -29,9 +28,17 @@ class SNMP:
         return res[0]
 
 
+def red(s: str) -> str:
+    return f"\x1b[31m{s}\x1b[0m"
+
+
+def green(s: str) -> str:
+    return f"\x1b[32m{s}\x1b[0m"
+
+
 def print_device(device: pynetbox.models.dcim.Devices, dev_pdu_power: dict, watts: int) -> None:
     s = "  " if verbose else ""
-    dev_pdu_power = " ".join([f"{h}:{co(p, 'green' if s else 'red')}={w}W" for (h, p), (w, s) in dev_pdu_power.items()])
+    dev_pdu_power = " ".join([f"{h}:{green(p) if s else red(p)}={w}W" for (h, p), (w, s) in dev_pdu_power.items()])
     print(f"{s}{device.name} status={device.status.value} {dev_pdu_power} ∑{watts}W")
 
 
