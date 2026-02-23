@@ -28,9 +28,15 @@ class SNMP:
         return res[0]
 
 
-def print_device(device: pynetbox.models.dcim.Devices, pdu_host: str, pwr_socket: int, watts: int) -> None:
+def print_device(device: pynetbox.models.dcim.Devices, dev_pdu_power: dict, watts: int) -> None:
     s = "  " if verbose else ""
-    print(f"{s}{device.name} status={device.status.value} {pdu_host} socket={pwr_socket} {watts}W")
+    dev_pdu_power = " ".join([f"{h}:{s}={w}W" for (h,s),w in dev_pdu_power.items()])
+    print(f"{s}{device.name} status={device.status.value} {dev_pdu_power} ∑{watts}W")
+
+
+def print_no_connection(device: pynetbox.models.dcim.Devices):
+    if verbose:
+        print(f"No connection for {device.name} ({device.display_url})", file=sys.stderr)
 
 
 # Either download the SNMP MIBs from the PDU's webui, extract them to ~/.snmp/mibs/
@@ -52,9 +58,10 @@ for device in devices:
     if not device.name.endswith("nue2.suse.org"):
         continue
     power_ports = nb.dcim.power_ports.filter(device_id=device.id)
-    try:
-        p = next(power_ports)
-        assert p.connected_endpoints
+    dev_pdu_power = {}
+    for p in power_ports:
+        if not p.connected_endpoints:
+            continue
         pdu_host = p.connected_endpoints[0].device.description
         pwr_socket = p.connected_endpoints[0].name
         if "suse" not in pdu_host:
@@ -64,14 +71,18 @@ for device in devices:
             pwr_socket = pwr_socket.split("-")[0]
         snmp = SNMP(pdu_host)
         w = int(snmp.get(outletWatts, f"0.{pwr_socket}"))
-        dev = (device, pdu_host, pwr_socket, w)
-        if w > max_power:
+        dev_pdu_power[(pdu_host, pwr_socket)] = w
+    if not dev_pdu_power:
+        print_no_connection(device)
+    else:
+        dev_total_pwr = 0
+        for (pdu_host, pwr_socket), w in dev_pdu_power.items():
+            dev_total_pwr += w
+        dev = (device, dev_pdu_power, dev_total_pwr)
+        if dev_total_pwr > max_power:
             power_hungry_devices.append(dev)
         else:
             good_devices.append(dev)
-    except (AssertionError, StopIteration):
-        if verbose:
-            print(f"No connection for {device.name} ({device.display_url})", file=sys.stderr)
 
 if verbose:
     print()
