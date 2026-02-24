@@ -17,6 +17,7 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from urllib.parse import urlparse
+from urllib3.util.retry import Retry
 from typing import List, Set
 
 import requests
@@ -32,7 +33,17 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 log = logging.getLogger(sys.argv[0] if __name__ == "__main__" else __name__)
 
 session = requests.Session()
-adapter = HTTPAdapter(pool_connections=100, pool_maxsize=100, max_retries=3)
+adapter = HTTPAdapter(
+    pool_connections=100,
+    pool_maxsize=100,
+    max_retries=Retry(
+        allowed_methods=["GET", "HEAD"],
+        backoff_factor=0.1,
+        # This list should end up like: [413, 429, 502, 503, 504] (sorted)
+        status_forcelist=list(Retry.RETRY_AFTER_STATUS_CODES) + [502, 504],
+        total=5,
+    ),
+)
 session.mount("http://", adapter)
 session.mount("https://", adapter)
 
