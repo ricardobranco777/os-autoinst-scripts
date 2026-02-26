@@ -215,11 +215,11 @@ def main(url: str, dry_run: bool = False) -> None:
         expected["conmon_testsuite"] += 2
         # For containerd we also run the critest
         expected["containerd_testsuite"] += 1
-        expected["docker_testsuite"] += 6
+        expected["docker_testsuite"] += 5
         # For skopeo we also run Golang integration tests
         expected["skopeo_testsuite"] += 1
     elif job["settings"]["DISTRI"] == "sle" and job["settings"]["VERSION"].startswith("16."):
-        expected["docker_testsuite"] += 6
+        expected["docker_testsuite"] += 5
 
     all_failures = []
 
