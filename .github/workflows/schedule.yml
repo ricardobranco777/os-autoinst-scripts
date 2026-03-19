@@ -4,7 +4,9 @@ on:
   push:
     branches: ['*pflash*']
   schedule:
-    - cron: '23 5 * * 0'
+  # disable scheduling of `ovmf-resolution` test for now as the default settings are currently good enough,
+  # see https://progress.opensuse.org/issues/197930#note-19
+  # - cron: '23 5 * * 0'
   workflow_dispatch:
 
 jobs:
