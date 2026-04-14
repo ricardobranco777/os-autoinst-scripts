@@ -8,6 +8,8 @@ on:
 jobs:
   obs-check-package-origin:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     container:
       image: registry.opensuse.org/opensuse/tumbleweed:latest
     steps:

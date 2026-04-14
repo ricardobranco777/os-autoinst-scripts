@@ -12,6 +12,8 @@ on:
 jobs:
   schedule:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     container:
       image: registry.opensuse.org/home/okurz/container/containers/tumbleweed:openQA-client
     env:
