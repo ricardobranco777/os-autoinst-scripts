@@ -9,6 +9,7 @@
 import os
 import re
 import sys
+from urllib.parse import urlparse
 
 import netsnmp
 import pynetbox
@@ -28,12 +29,14 @@ def snmp_get(host: str, community: str, oid: str) -> int:
 def pdu_get_power(host: str, outlet: int) -> tuple[int, bool]:
     if debug:
         print(f"get_pdu_power({host=}, {outlet=})")
-    if host.endswith("qe.nue2.suse.org"):
+    parsed = urlparse(host if "://" in host else f"//{host}")
+    parsed_host = (parsed.hostname or host).lower()
+    if parsed_host == "qe.nue2.suse.org" or parsed_host.endswith(".qe.nue2.suse.org"):
         # FC-B PDUs are type EATON and directly reachable
         community = "public"
         watts = snmp_get(host, community, f".1.3.6.1.4.1.534.6.6.7.6.5.1.3.0.{outlet}")
         relay = snmp_get(host, community, f".1.3.6.1.4.1.534.6.6.7.6.6.1.2.0.{outlet}")
-    elif host.endswith("prg2.suse.org"):
+    elif parsed_host == "prg2.suse.org" or parsed_host.endswith(".prg2.suse.org"):
         # PRG2(e) PDUs can be reached via SNMP proxy on qe-jumpy.prg2.suse.org
         snmp_proxy = "qe-jumpy.prg2.suse.org"
         short_host = host.split(".", 1)[0]
